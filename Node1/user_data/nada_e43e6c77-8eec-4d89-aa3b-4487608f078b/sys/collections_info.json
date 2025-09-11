@@ -1,0 +1,18 @@
+{
+  "col" : {
+    "collectionName" : "col",
+    "collectionId" : "9bdf3294-6653-4376-aa09-3eb58e32c432",
+    "schema" : {
+      "isIt" : {
+        "required" : false,
+        "type" : "boolean",
+        "index" : true
+      },
+      "doubly" : {
+        "required" : false,
+        "type" : "boolean",
+        "index" : true
+      }
+    }
+  }
+}

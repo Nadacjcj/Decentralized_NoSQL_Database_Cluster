@@ -1,0 +1,144 @@
+version: "3.9"
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.1
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.1
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    command: "agent -dev -client=0.0.0.0"
+
+  spring-app-a:
+    build:
+      context: ./Node1
+      dockerfile: Dockerfile
+    container_name: spring-app-a
+    hostname: spring-app-a
+    ports:
+      - "9001:9001"
+    depends_on:
+      - consul
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - spring.cloud.consul.host=consul
+      - spring.cloud.consul.port=8500
+      - spring.cloud.consul.discovery.hostname=spring-app-a
+      - SPRING_APPLICATION_NAME=NodeA
+      - SERVER_PORT=9001
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=user-events-group-a
+
+  spring-app-b:
+    build:
+      context: ./Node1
+      dockerfile: Dockerfile
+    container_name: spring-app-b
+    hostname: spring-app-b
+    ports:
+      - "9002:9001"
+    depends_on:
+      - consul
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - spring.cloud.consul.host=consul
+      - spring.cloud.consul.port=8500
+      - spring.cloud.consul.discovery.hostname=spring-app-b
+      - SPRING_APPLICATION_NAME=NodeB
+      - SERVER_PORT=9001
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=user-events-group-b
+
+  spring-app-c:
+    build:
+      context: ./Node1
+      dockerfile: Dockerfile
+    container_name: spring-app-c
+    hostname: spring-app-c
+    ports:
+      - "9003:9001"
+    depends_on:
+      - consul
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - spring.cloud.consul.host=consul
+      - spring.cloud.consul.port=8500
+      - spring.cloud.consul.discovery.hostname=spring-app-c
+      - SPRING_APPLICATION_NAME=NodeC
+      - SERVER_PORT=9001
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=user-events-group-c
+
+  reverse-proxy-1:
+    build:
+      context: ./Proxy
+      dockerfile: Dockerfile
+    container_name: reverse-proxy-1
+    ports:
+      - "8081:8081"
+    depends_on:
+      - consul
+    environment:
+      - SERVER_PORT=8081
+      - spring.application.name=reverse-proxy
+      - spring.cloud.consul.host=consul
+      - spring.cloud.consul.port=8500
+      - spring.cloud.consul.discovery.register=true
+      - spring.cloud.consul.discovery.prefer-ip-address=true
+      - spring.cloud.consul.discovery.instance-id=reverse-proxy-8081
+
+  reverse-proxy-2:
+    build:
+      context: ./Proxy
+      dockerfile: Dockerfile
+    container_name: reverse-proxy-2
+    ports:
+      - "8082:8082"
+    depends_on:
+      - consul
+    environment:
+      - SERVER_PORT=8082
+      - spring.application.name=reverse-proxy
+      - spring.cloud.consul.host=consul
+      - spring.cloud.consul.port=8500
+      - spring.cloud.consul.discovery.register=true
+      - spring.cloud.consul.discovery.prefer-ip-address=true
+      - spring.cloud.consul.discovery.instance-id=reverse-proxy-8082
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - reverse-proxy-1
+      - reverse-proxy-2
+

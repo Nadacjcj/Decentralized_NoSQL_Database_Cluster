@@ -1,0 +1,23 @@
+{
+  "age" : {
+    "required" : false,
+    "type" : "integer",
+    "index" : true
+  },
+  "name.fname" : {
+    "required" : true,
+    "type" : "string",
+    "index" : true
+  },
+  "name.lname" : {
+    "required" : false,
+    "unique" : false,
+    "type" : "string"
+  },
+  "id" : {
+    "required" : null,
+    "unique" : null,
+    "type" : "STRING",
+    "index" : false
+  }
+}

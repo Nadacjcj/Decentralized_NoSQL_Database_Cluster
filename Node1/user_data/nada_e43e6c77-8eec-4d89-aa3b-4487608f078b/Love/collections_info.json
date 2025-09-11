@@ -1,0 +1,32 @@
+{
+  "test" : {
+    "collectionName" : "test",
+    "collectionId" : "79cb55b5-d9f4-4ff2-8c10-31798744e16f",
+    "schema" : {
+      "name" : {
+        "required" : false,
+        "unique" : false,
+        "type" : "string"
+      },
+      "email" : {
+        "required" : false,
+        "unique" : true,
+        "type" : "string",
+        "index" : true
+      },
+      "address" : {
+        "type" : "object",
+        "city" : {
+          "required" : true,
+          "type" : "string",
+          "index" : true
+        },
+        "zip" : {
+          "required" : false,
+          "unique" : true,
+          "type" : "string"
+        }
+      }
+    }
+  }
+}

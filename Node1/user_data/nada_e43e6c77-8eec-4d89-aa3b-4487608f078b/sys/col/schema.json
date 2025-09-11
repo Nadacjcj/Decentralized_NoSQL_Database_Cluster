@@ -1,0 +1,18 @@
+{
+  "isIt" : {
+    "required" : false,
+    "type" : "boolean",
+    "index" : true
+  },
+  "doubly" : {
+    "required" : false,
+    "type" : "float",
+    "index" : true
+  },
+  "id" : {
+    "required" : null,
+    "unique" : null,
+    "type" : "STRING",
+    "index" : false
+  }
+}

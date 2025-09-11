@@ -1,0 +1,17 @@
+{
+  "Love" : {
+    "id" : "1291ccca-fa30-40b0-8c59-7f1261393e29",
+    "name" : "Love",
+    "description" : "Ilove her"
+  },
+  "myDB" : {
+    "id" : "6ed36e43-0e74-4e60-8bc4-f4ac013814a7",
+    "name" : "myDB",
+    "description" : "testing numeric queries"
+  },
+  "sys" : {
+    "id" : "88266a4f-a193-4a5b-b67b-92c69befa070",
+    "name" : "sys",
+    "description" : "testing boolean queries"
+  }
+}

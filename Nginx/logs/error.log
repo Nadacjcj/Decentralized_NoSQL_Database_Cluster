@@ -1,0 +1,5 @@
+2025/07/30 21:38:34 [error] 4476#7836: *2 CreateFile() "C:\Users\user\Downloads\Nginx\nginx/html/favicon.ico" failed (2: The system cannot find the file specified), client: 127.0.0.1, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "localhost", referrer: "http://localhost/"
+2025/07/30 21:44:29 [error] 4476#7836: *4 CreateFile() "C:\Users\user\Downloads\Nginx\nginx/html/api/test" failed (3: The system cannot find the path specified), client: 127.0.0.1, server: localhost, request: "GET /api/test HTTP/1.1", host: "localhost"
+2025/07/30 21:46:12 [notice] 6076#13476: signal process started
+2025/07/30 21:47:19 [error] 4476#7836: *10 CreateFile() "C:\Users\user\Downloads\Nginx\nginx/html/api/test" failed (3: The system cannot find the path specified), client: 127.0.0.1, server: localhost, request: "GET /api/test HTTP/1.1", host: "localhost"
+2025/07/30 21:54:09 [notice] 13708#12976: signal process started

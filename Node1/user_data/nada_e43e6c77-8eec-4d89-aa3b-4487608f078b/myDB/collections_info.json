@@ -1,0 +1,26 @@
+{
+  "myCollection" : {
+    "collectionName" : "myCollection",
+    "collectionId" : "c46ba63e-e967-4e62-9b54-fc9e849b63ad",
+    "schema" : {
+      "age" : {
+        "required" : false,
+        "type" : "integer",
+        "index" : true
+      },
+      "name" : {
+        "type" : "object",
+        "fname" : {
+          "required" : true,
+          "type" : "string",
+          "index" : true
+        },
+        "lname" : {
+          "required" : false,
+          "unique" : false,
+          "type" : "string"
+        }
+      }
+    }
+  }
+}

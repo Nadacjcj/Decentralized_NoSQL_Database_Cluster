@@ -1,0 +1,13 @@
+[ {
+  "id" : "e43e6c77-8eec-4d89-aa3b-4487608f078b",
+  "username" : "nada",
+  "passwordHash" : "$2a$10$6ZPl52k5R3BmSXz5hFu2iOEciKzCbZ.5Nq4OjKdZiq9bNdqbjtk52"
+}, {
+  "id" : "dfc51ddf-13e8-415b-96c9-2d0c1523628f",
+  "username" : "Aloosh",
+  "passwordHash" : "$2a$10$an9eU2FbsuOH2fJ.UcBKFeRFenhSNa7G1.zD/6qlWEO1XAY95TcxW"
+}, {
+  "id" : "e00db0a2-7e14-41c3-8ba7-7e590ce9d93e",
+  "username" : "testuser",
+  "passwordHash" : "$2a$10$cP95xmhit71drUjXut31OeFP3DPKj0jsnW95qHbC8HnjL4719ru26"
+}]
