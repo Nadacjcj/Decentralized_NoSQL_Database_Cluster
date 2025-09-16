@@ -1,12 +1,15 @@
 package org.example.node.service;
+
 import org.example.node.dto.*;
-import org.example.node.dto.DBCreationRequest;
 import org.example.node.events.DbFolderEvent;
 import org.example.node.filter.JwtAuthenticationFilter;
+import org.example.node.locks.ConsulLockService;
+import org.example.node.util.DirectoryUtil;
 import org.example.node.util.PathUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -15,82 +18,81 @@ import java.util.UUID;
 @Service
 public class DatabaseService {
 
-        @Autowired
-        private KafkaTemplate<String, Object> kafkaTemplate;
+    @Autowired
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
-        public String createDatabase(JwtAuthenticationFilter.UserPrincipal user , DBCreationRequest request) throws IOException {
-            if (request.getDatabaseName() == null || request.getDatabaseName().isEmpty()) {
-                return "Folder name is required";
-            }
-            if (request.getDescription() == null) {
-                request.setDescription("None");
-            }
+    @Autowired
+    private ConsulLockService lockService;
 
-            try {
-                String userFolder = buildUserFolderName(user);
-                FolderMeta folderMeta = createDbMetaObject(request);
+    public String createDatabase(JwtAuthenticationFilter.UserPrincipal user, DBCreationRequest request) throws IOException {
+        if (request.getDatabaseName() == null || request.getDatabaseName().isEmpty())
+            return "Folder name is required";
+        if (request.getDescription() == null)
+            request.setDescription("None");
 
-                DbFolderEvent dbFolderEvent = new DbFolderEvent();
-                dbFolderEvent.setUserFolderName(userFolder);
-                dbFolderEvent.setDbFolderName(request.getDatabaseName());
-                dbFolderEvent.setFolderMeta(folderMeta);
-                dbFolderEvent.setDbFolderDescription(request.getDescription());
-                dbFolderEvent.setAction("CREATE");
-                kafkaTemplate.send("database-events", dbFolderEvent);
+        String userFolder = buildUserFolderName(user);
+        String dbFolderName = request.getDatabaseName();
+        String lockKey = "db-folder:" + userFolder + ":" + dbFolderName;
 
+        boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+        if (!lockAcquired)
+            throw new IllegalStateException("Could not acquire lock for creating database " + dbFolderName);
 
-                return "Folder created for user: " + userFolder + " ** " + dbFolderEvent;
-            }
-            catch (Exception e){
-                return "Folder creation failed for user: " + user.getUsername();
-            }
-        }
-
-
-    public String deleteDatabase(JwtAuthenticationFilter.UserPrincipal user , DBDeletionRequest folderRequest) throws IOException {
-        DbFolderEvent dbFolderEvent = new DbFolderEvent();
         try {
-            String userFolder = buildUserFolderName(user);
-            if (folderRequest.getDatabaseName() == null || folderRequest.getDatabaseName().isEmpty()) {
-                return "Cant Rename folder , either an Invalid / replicated name / Missing Description";
-            }
-            dbFolderEvent.setUserFolderName(userFolder);
-            dbFolderEvent.setDbFolderName(folderRequest.getDatabaseName());
-            dbFolderEvent.setAction("DELETE");
+            Path dbPath = PathUtil.buildPath(userFolder, dbFolderName);
+            DirectoryUtil.createDirectory(dbPath);
+
+            FolderMeta folderMeta = createDbMetaObject(request);
+
+            DbFolderEvent dbFolderEvent = buildEvent(userFolder, dbFolderName, folderMeta, request.getDescription(), "CREATE");
             kafkaTemplate.send("database-events", dbFolderEvent);
 
-            return "Folder deleted for user: " + dbFolderEvent;
-        }
-        catch (Exception e){
-            return "Folder deletion failed for user: " + dbFolderEvent;
+            return "Folder created and event published for user: " + userFolder;
+        } finally {
+            lockService.releaseWriteLock(lockKey);
         }
     }
 
+    public String deleteDatabase(JwtAuthenticationFilter.UserPrincipal user, DBDeletionRequest request) throws IOException {
+        if (request.getDatabaseName() == null || request.getDatabaseName().isEmpty())
+            return "Cannot delete folder — invalid or missing name";
+
+        String userFolder = buildUserFolderName(user);
+        String dbFolderName = request.getDatabaseName();
+        String lockKey = "db-folder:" + userFolder + ":" + dbFolderName;
+
+        boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+        if (!lockAcquired)
+            throw new IllegalStateException("Could not acquire lock for deleting database " + dbFolderName);
+
+        try {
+            DbFolderEvent event = buildEvent(userFolder, dbFolderName, null, null, "DELETE");
+            kafkaTemplate.send("database-events", event);
+            return "Folder deleted for user: " + userFolder;
+        } finally {
+            lockService.releaseWriteLock(lockKey);
+        }
+    }
 
     public String renameDatabase(JwtAuthenticationFilter.UserPrincipal user, DirectoryRenameRequest request) {
+        if (request.getOldDirectoryName().isEmpty() || request.getNewDirectoryName().isEmpty())
+            return "Cannot rename folder — invalid or missing name";
+
+        String userFolder = buildUserFolderName(user);
+        String lockKey = "db-folder:" + userFolder + ":" + request.getOldDirectoryName();
+
+        boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+        if (!lockAcquired)
+            return "Could not acquire lock for renaming folder " + request.getOldDirectoryName();
 
         try {
-            String userFolder = buildUserFolderName(user);
-
-            if (request.getOldDirectoryName().isEmpty() || request.getNewDirectoryName().isEmpty()) {
-                return "Cant Rename folder , either an Invalid / replicated name";
-            }
-
-            DbFolderEvent dbFolderEvent = new DbFolderEvent();
-            dbFolderEvent.setUserFolderName(userFolder);
-            dbFolderEvent.setDbFolderName(request.getOldDirectoryName());
-            dbFolderEvent.setDbNewFolderName(request.getNewDirectoryName());
-            dbFolderEvent.setAction("RENAME");
-
-            kafkaTemplate.send("database-events", dbFolderEvent);
-
+            DbFolderEvent event = buildRenameEvent(userFolder, request.getOldDirectoryName(), request.getNewDirectoryName());
+            kafkaTemplate.send("database-events", event);
             return "Rename event published for user: " + userFolder;
-        }
-        catch (Exception e){
-            return "Folder rename failed for user: " + user.getUsername();
+        } finally {
+            lockService.releaseWriteLock(lockKey);
         }
     }
-
 
     private FolderMeta createDbMetaObject(DBCreationRequest request) {
         return new FolderMeta(
@@ -100,10 +102,27 @@ public class DatabaseService {
                 request.getDescription().equals("None") ? "" : request.getDescription()
         );
     }
-    private String buildUserFolderName(JwtAuthenticationFilter.UserPrincipal user){
-        return user.getUsername() + "_" + user.getId();
 
+    private String buildUserFolderName(JwtAuthenticationFilter.UserPrincipal user) {
+        return user.getUsername() + "_" + user.getId();
     }
 
+    private DbFolderEvent buildEvent(String userFolder, String dbFolderName, FolderMeta meta, String description, String action) {
+        DbFolderEvent event = new DbFolderEvent();
+        event.setUserFolderName(userFolder);
+        event.setDbFolderName(dbFolderName);
+        event.setFolderMeta(meta);
+        event.setDbFolderDescription(description);
+        event.setAction(action);
+        return event;
+    }
 
+    private DbFolderEvent buildRenameEvent(String userFolder, String oldName, String newName) {
+        DbFolderEvent event = new DbFolderEvent();
+        event.setUserFolderName(userFolder);
+        event.setDbFolderName(oldName);
+        event.setDbNewFolderName(newName);
+        event.setAction("RENAME");
+        return event;
+    }
 }

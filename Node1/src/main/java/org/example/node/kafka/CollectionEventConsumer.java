@@ -18,6 +18,7 @@ public class CollectionEventConsumer {
 
     @Autowired
     private CollectionManagementService collectionManagementService;
+
     @Autowired
     private CollectionIndexService collectionIndexService;
 
@@ -27,7 +28,5 @@ public class CollectionEventConsumer {
     @KafkaListener(topics = "collection-events", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(CollectionEvent event) throws IOException {
         event.process(collectionManagementService, collectionIndexService, jsonIndexingService);
-
     }
-
 }

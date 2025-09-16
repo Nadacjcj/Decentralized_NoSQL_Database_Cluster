@@ -3,11 +3,10 @@ package org.example.node.kafka;
 import org.example.node.dto.DBDeletionRequest;
 import org.example.node.dto.DirectoryRenameRequest;
 import org.example.node.dto.DBCreationRequest;
-import org.example.node.dto.FolderMeta;
 import org.example.node.events.DbFolderEvent;
 import org.example.node.service.DatabaseIndexService;
 import org.example.node.service.DatabaseManagementService;
-import org.example.node.util.DirectoryUtil;
+import org.example.node.locks.ConsulLockService;
 import org.example.node.util.PathUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -15,53 +14,76 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.util.UUID;
 
 @Component
 public class DbEventConsumer {
+
     @Autowired
     DatabaseManagementService databaseManagementService;
 
     @Autowired
     DatabaseIndexService databaseIndexService;
-    public DbEventConsumer(){}
+
+    @Autowired
+    ConsulLockService lockService;
 
     @KafkaListener(topics = "database-events", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(DbFolderEvent event) throws IOException {
-        Path dbPath = PathUtil.buildPath(event.getUserFolderName(), event.getDbFolderName());
+        String userFolder = event.getUserFolderName();
+        String dbFolderName = event.getDbFolderName();
+        String lockKey = "db-folder:" + userFolder + ":" + dbFolderName;
 
-        switch (event.getAction()) {
-            case "CREATE":
-                DBCreationRequest createFolderRequest = new DBCreationRequest(event.getDbFolderName() , event.getDbFolderDescription());
-                boolean canCreateDB = databaseManagementService.createFolder(dbPath , event.getUserFolderName(),createFolderRequest);
-                if(canCreateDB) {
-                    Path metaFilePath = PathUtil.buildPath(event.getUserFolderName()).resolve("databases_info.json");
-                    databaseIndexService.storeDatabaseInfo(event.getFolderMeta(), metaFilePath);
-                }
+        boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+        if (!lockAcquired) {
+            System.out.println("Could not acquire lock for " + lockKey + " , retrying later.");
+            return;
+        }
 
-                break;
-            case "DELETE":
-                DBDeletionRequest deleteFolderRequest = new DBDeletionRequest(event.getDbFolderName());
-                boolean canDeleteDB =  databaseManagementService.deleteFolder(dbPath , event.getUserFolderName(), deleteFolderRequest);
-                if(canDeleteDB){
-                    Path metaFilePath = PathUtil.buildPath(event.getUserFolderName()).resolve("databases_info.json");
-                    databaseIndexService.removeDatabaseInfo(deleteFolderRequest.getDatabaseName(), metaFilePath);
-                }
+        try {
+            Path dbPath = PathUtil.buildPath(userFolder, dbFolderName);
 
-                break;
-            case "RENAME":
-                DirectoryRenameRequest renameRequest =
-                        new DirectoryRenameRequest(event.getDbFolderName(), event.getDbNewFolderName());
+            switch (event.getAction()) {
+                case "CREATE":
+                    handleCreate(dbPath, userFolder, event);
+                    break;
 
-                boolean canRenameDB = databaseManagementService.renameFolder(dbPath, event.getUserFolderName(), renameRequest);
+                case "DELETE":
+                    handleDelete(dbPath, userFolder, event);
+                    break;
 
-                if (canRenameDB) {
-                    Path metaFilePath = PathUtil.buildPath(event.getUserFolderName()).resolve("databases_info.json");
-                    databaseIndexService.renameDatabase(renameRequest, metaFilePath);
-                }
-                break;
+                case "RENAME":
+                    handleRename(dbPath, userFolder, event);
+                    break;
+            }
+        } finally {
+            lockService.releaseWriteLock(lockKey);
+        }
+    }
 
+    private void handleCreate(Path dbPath, String userFolder, DbFolderEvent event) throws IOException {
+        DBCreationRequest request = new DBCreationRequest(event.getDbFolderName(), event.getDbFolderDescription());
+        boolean created = databaseManagementService.createFolder(dbPath, userFolder, request);
+        if (created) {
+            Path metaFile = PathUtil.buildPath(userFolder).resolve("databases_info.json");
+            databaseIndexService.storeDatabaseInfo(event.getFolderMeta(), metaFile);
+        }
+    }
+
+    private void handleDelete(Path dbPath, String userFolder, DbFolderEvent event) throws IOException {
+        DBDeletionRequest request = new DBDeletionRequest(event.getDbFolderName());
+        boolean deleted = databaseManagementService.deleteFolder(dbPath, userFolder, request);
+        if (deleted) {
+            Path metaFile = PathUtil.buildPath(userFolder).resolve("databases_info.json");
+            databaseIndexService.removeDatabaseInfo(request.getDatabaseName(), metaFile);
+        }
+    }
+
+    private void handleRename(Path dbPath, String userFolder, DbFolderEvent event) throws IOException {
+        DirectoryRenameRequest request = new DirectoryRenameRequest(event.getDbFolderName(), event.getDbNewFolderName());
+        boolean renamed = databaseManagementService.renameFolder(dbPath, userFolder, request);
+        if (renamed) {
+            Path metaFile = PathUtil.buildPath(userFolder).resolve("databases_info.json");
+            databaseIndexService.renameDatabase(request, metaFile);
         }
     }
 }

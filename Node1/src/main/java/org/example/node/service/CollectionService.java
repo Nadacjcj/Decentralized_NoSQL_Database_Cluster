@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.example.node.dto.*;
 import org.example.node.enums.FieldTypes;
-import org.example.node.events.CollectionEvent;
 import org.example.node.events.CreateCollectionEvent;
 import org.example.node.events.DeleteCollectionEvent;
 import org.example.node.events.RenameCollectionEvent;
@@ -15,6 +14,7 @@ import org.example.node.util.JsonFlattener;
 import org.example.node.util.JsonPayloadUtil;
 import org.example.node.util.PathUtil;
 import org.example.node.util.SchemaFlattenStrategy;
+import org.example.node.locks.ConsulLockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -28,115 +28,107 @@ import java.util.UUID;
 
 @Service
 public class CollectionService {
-    @Autowired
-    JsonFlattener jsonFlattener;
+
+    @Autowired private JsonFlattener jsonFlattener;
+    @Autowired private JsonRepository jsonRepository;
+    @Autowired private KafkaTemplate<String, Object> kafkaTemplate;
+    @Autowired private ConsulLockService lockService;
 
     private final ObjectMapper mapper = new ObjectMapper();
-    @Autowired
-    private JsonRepository jsonRepository;
-    @Autowired
-    private KafkaTemplate<String, Object> kafkaTemplate;
 
-    public String createCollection(JwtAuthenticationFilter.UserPrincipal user, String databaseName, CollectionRequest collectionRequest) throws IOException {
+
+    public String createCollection(JwtAuthenticationFilter.UserPrincipal user,
+                                   String databaseName,
+                                   CollectionRequest collectionRequest) throws IOException {
 
         String userFolder = buildUserFolderName(user);
         CollectionMeta collectionMeta = createCollectionMeta(collectionRequest);
-        boolean indexExists = checkKeyExistence(userFolder , databaseName , collectionMeta.getCollectionName() );
 
-        if(indexExists) {
-            return "Collection Already Exists";
-        }
-        if (collectionRequest.getCollectionName() == null || collectionRequest.getCollectionName().isEmpty()) {
-            return "Collection name is required";
-        }
-        if (collectionRequest.getSchema() == null  || collectionRequest.getSchema().isEmpty()) {
-            return "Schema name is required";
-        }
-        CreateCollectionEvent collectionEvent = new CreateCollectionEvent();
-        try {
-            JsonNode flattenedSchema = createCollectionSchema(
-                    userFolder, databaseName,
-                    collectionRequest.getCollectionName(),
-                    collectionRequest.getSchema()
-            );
+        String validation = validateCreateRequest(userFolder, databaseName, collectionRequest);
+        if (validation != null) return validation;
 
-            collectionEvent.setCollectionRequest(collectionRequest);
-            collectionEvent.setCollectionMeta(collectionMeta);
-            collectionEvent.setUserFolderName(userFolder);
-            collectionEvent.setDatabaseName(databaseName);
-            collectionEvent.setFlattenedSchema(flattenedSchema);
+        String lockKey = generateLockKey(userFolder, databaseName, collectionRequest.getCollectionName());
 
-            kafkaTemplate.send("collection-events", collectionEvent);
+        return withDistributedLock(lockKey, () -> {
+            JsonNode flattenedSchema = createCollectionSchema(userFolder, databaseName,
+                    collectionRequest.getCollectionName(), collectionRequest.getSchema());
 
-        }
-        catch (Exception e){
-            return "Folder creation failed for user: " + user.getUsername() + collectionEvent;
-        }
-        return "Collection created for user: " + user.getUsername() + collectionEvent;
+            CreateCollectionEvent event = buildCreateEvent(userFolder, databaseName,
+                    collectionRequest, collectionMeta, flattenedSchema);
+
+            kafkaTemplate.send("collection-events", event);
+            return "Collection created for user: " + user.getUsername() + " " + event;
+        });
     }
 
-    public String deleteCollection(JwtAuthenticationFilter.UserPrincipal user, String databaseName, CollectionRequest collectionRequest) throws IOException {
+    public String deleteCollection(JwtAuthenticationFilter.UserPrincipal user,
+                                   String databaseName,
+                                   CollectionRequest collectionRequest) throws IOException {
 
         String userFolder = buildUserFolderName(user);
-        boolean indexExists = checkKeyExistence(userFolder , databaseName , collectionRequest.getCollectionName() );
 
-        if(!indexExists) {
-            return "No Such Collection Exists";
-        }
-        if (collectionRequest.getCollectionName() == null || collectionRequest.getCollectionName().isEmpty()) {
-            return "Folder name is required";
-        }
-        DeleteCollectionEvent collectionEvent = new DeleteCollectionEvent();
-        try {
-            collectionEvent.setCollectionRequest(collectionRequest);
-            collectionEvent.setUserFolderName(userFolder);
-            collectionEvent.setDatabaseName(databaseName);
+        String validation = validateDeleteRequest(userFolder, databaseName, collectionRequest);
+        if (validation != null) return validation;
 
-            kafkaTemplate.send("collection-events", collectionEvent);
-            return "Folder deleted for user: " + userFolder + " " + collectionEvent;
-        }
-        catch (Exception e){
-            return "Folder deletion failed for user: " + user.getUsername() + " " + collectionEvent;
-        }
+        String lockKey = generateLockKey(userFolder, databaseName, collectionRequest.getCollectionName());
+
+        return withDistributedLock(lockKey, () -> {
+            DeleteCollectionEvent event = new DeleteCollectionEvent();
+            event.setCollectionRequest(collectionRequest);
+            event.setUserFolderName(userFolder);
+            event.setDatabaseName(databaseName);
+
+            kafkaTemplate.send("collection-events", event);
+            return "Folder deleted for user: " + userFolder + " " + event;
+        });
     }
 
-    public String renameCollection(JwtAuthenticationFilter.UserPrincipal user, String databaseName , DirectoryRenameRequest request) throws IOException {
+    public String renameCollection(JwtAuthenticationFilter.UserPrincipal user,
+                                   String databaseName,
+                                   DirectoryRenameRequest request) throws IOException {
+
         String userFolder = buildUserFolderName(user);
-        boolean indexExists = checkKeyExistence(userFolder , databaseName , request.getNewDirectoryName());
-        if(indexExists) {
+
+        if (checkKeyExistence(userFolder, databaseName, request.getNewDirectoryName()))
             return "Collection with this name already Exists";
-        }
 
-        RenameCollectionEvent collectionEvent = new RenameCollectionEvent();
-        try {
-            collectionEvent.setRequest(request);
-            collectionEvent.setUserFolderName(userFolder);
-            collectionEvent.setDatabaseName(databaseName);
-            kafkaTemplate.send("collection-events", collectionEvent);
-            return "Folder renamed for user: " + userFolder + " " + collectionEvent;
-        }
-        catch (Exception e){
-            return "Folder rename failed for user: " + user.getUsername() + " " + collectionEvent;
-        }
+        String lockKey = generateLockKey(userFolder, databaseName, request.getOldDirectoryName());
+
+        return withDistributedLock(lockKey, () -> {
+            RenameCollectionEvent event = new RenameCollectionEvent();
+            event.setRequest(request);
+            event.setUserFolderName(userFolder);
+            event.setDatabaseName(databaseName);
+
+            kafkaTemplate.send("collection-events", event);
+            return "Folder renamed for user: " + userFolder + " " + event;
+        });
     }
+
     public CollectionMeta createCollectionMeta(CollectionRequest collectionRequest) {
         return new CollectionMeta(
-                collectionRequest.getCollectionName() ,
-                UUID.randomUUID().toString() ,
-                collectionRequest.getSchema());
+                collectionRequest.getCollectionName(),
+                UUID.randomUUID().toString(),
+                collectionRequest.getSchema()
+        );
     }
 
-    public JsonNode createCollectionSchema(String username, String databaseName, String collectionName, JsonNode schema) throws IOException {
+    public JsonNode createCollectionSchema(String username,
+                                           String databaseName,
+                                           String collectionName,
+                                           JsonNode schema) throws IOException {
+
         Path filePath = PathUtil.buildPath(username, databaseName, collectionName).resolve("schema.json");
         Files.createDirectories(filePath.getParent());
 
         File file = filePath.toFile();
-
         JsonNode flattenedSchema = jsonFlattener.flatten(schema, new SchemaFlattenStrategy());
         JsonNode finalSchema = addIdFieldToSchema(flattenedSchema);
-        jsonRepository.writeSchema(file , finalSchema);
+
+        jsonRepository.writeSchema(file, finalSchema);
         return finalSchema;
     }
+
     private JsonNode addIdFieldToSchema(JsonNode schema) {
         boolean hasId = false;
         String foundIdKey = null;
@@ -152,29 +144,75 @@ public class CollectionService {
         }
 
         ObjectNode jsonDoc = (ObjectNode) schema;
-
         if (hasId) {
             if (!foundIdKey.equals("id")) {
                 JsonNode idValue = jsonDoc.get(foundIdKey);
                 jsonDoc.remove(foundIdKey);
                 jsonDoc.set("id", idValue);
             }
-            return jsonDoc;
         } else {
-            JsonNode schemaRuleNode = mapper.valueToTree(
-                    new SchemaRule(null, null, FieldTypes.STRING, false)
-            );
+            JsonNode schemaRuleNode = mapper.valueToTree(new SchemaRule(null, null, FieldTypes.STRING, false));
             jsonDoc.set("id", schemaRuleNode);
-            return jsonDoc;
         }
-
+        return jsonDoc;
     }
-    private String buildUserFolderName(JwtAuthenticationFilter.UserPrincipal user){
+
+
+    private String buildUserFolderName(JwtAuthenticationFilter.UserPrincipal user) {
         return user.getUsername() + "_" + user.getId();
-
-    }
-    public boolean checkKeyExistence(String username , String databaseName , String collectionName) throws IOException {
-        return JsonPayloadUtil.loadCollectionIndex(username , databaseName).containsKey(collectionName);
     }
 
+    private boolean checkKeyExistence(String username, String databaseName, String collectionName) throws IOException {
+        return JsonPayloadUtil.loadCollectionIndex(username, databaseName).containsKey(collectionName);
+    }
+
+    private String generateLockKey(String userFolder, String databaseName, String collectionName) {
+        return "collection:" + userFolder + ":" + databaseName + ":" + collectionName;
+    }
+
+    private String withDistributedLock(String lockKey, LockCallback callback) throws IOException {
+        boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+        if (!lockAcquired) throw new IllegalStateException("Could not acquire lock for " + lockKey);
+
+        try {
+            return callback.execute();
+        } finally {
+            lockService.releaseWriteLock(lockKey);
+        }
+    }
+
+    private String validateCreateRequest(String userFolder, String databaseName, CollectionRequest collectionRequest) throws IOException {
+        if (collectionRequest.getCollectionName() == null || collectionRequest.getCollectionName().isEmpty())
+            return "Collection name is required";
+        if (collectionRequest.getSchema() == null || collectionRequest.getSchema().isEmpty())
+            return "Schema name is required";
+        if (checkKeyExistence(userFolder, databaseName, collectionRequest.getCollectionName()))
+            return "Collection Already Exists";
+        return null;
+    }
+
+    private String validateDeleteRequest(String userFolder, String databaseName, CollectionRequest collectionRequest) throws IOException {
+        if (collectionRequest.getCollectionName() == null || collectionRequest.getCollectionName().isEmpty())
+            return "Folder name is required";
+        if (!checkKeyExistence(userFolder, databaseName, collectionRequest.getCollectionName()))
+            return "No Such Collection Exists";
+        return null;
+    }
+
+    private CreateCollectionEvent buildCreateEvent(String userFolder, String databaseName,
+                                                   CollectionRequest request, CollectionMeta meta, JsonNode flattenedSchema) {
+        CreateCollectionEvent event = new CreateCollectionEvent();
+        event.setCollectionRequest(request);
+        event.setCollectionMeta(meta);
+        event.setUserFolderName(userFolder);
+        event.setDatabaseName(databaseName);
+        event.setFlattenedSchema(flattenedSchema);
+        return event;
+    }
+
+
+    @FunctionalInterface
+    private interface LockCallback {
+        String execute() throws IOException;
+    }
 }

@@ -2,6 +2,7 @@ package org.example.node.service;
 
 import org.example.node.dto.SignUpRequest;
 import org.example.node.dto.SignUpResponse;
+import org.example.node.locks.ConsulLockService;
 import org.example.node.model.User;
 import org.example.node.repository.JsonRepository;
 import org.example.node.repository.UserRepository;
@@ -9,7 +10,6 @@ import org.example.node.util.ConsistentHashing;
 import org.example.node.util.DirectoryUtil;
 import org.example.node.util.PathUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ public class SignUpService {
     private final UserRepository userRepository;
 
     @Autowired
-    ConsulServiceDiscovery consulServiceDiscovery;
+    private ConsulServiceDiscovery consulServiceDiscovery;
 
     @Autowired
     private JsonRepository jsonRepository;
@@ -33,6 +33,8 @@ public class SignUpService {
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Autowired
+    private ConsulLockService lockService;
 
     public SignUpService(UserRepository userRepository) {
         this.userRepository = userRepository;
@@ -40,26 +42,37 @@ public class SignUpService {
     }
 
     public SignUpResponse signUp(SignUpRequest signUpRequest) throws IOException {
-        userRepository.findByUsername(signUpRequest.getUsername())
-                .ifPresent(u -> { throw new IllegalArgumentException("Username already exists"); });
+        String lockKey = "user-signup:" + signUpRequest.getUsername();
 
-        String hashedPassword = passwordEncoder.encode(signUpRequest.getPassword());
-        User newUser = new User(signUpRequest.getUsername(), hashedPassword);
+        boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+        if (!lockAcquired) {
+            throw new IllegalStateException("Could not acquire lock for user signup, try again later");
+        }
 
-        List<String> nodes = consulServiceDiscovery.getAllServiceNodes();
-        ConsistentHashing ch = new ConsistentHashing(nodes.toArray(new String[0]), 100);
-        String affinityNode = ch.getNode(newUser.getId());
-        newUser.setAffinityNode(affinityNode);
+        try {
+            // CRITICAL SECTION START
+            userRepository.findByUsername(signUpRequest.getUsername())
+                    .ifPresent(u -> { throw new IllegalArgumentException("Username already exists"); });
 
-        userRepository.save(newUser);
-        createUserDirectory(newUser);
+            String hashedPassword = passwordEncoder.encode(signUpRequest.getPassword());
+            User newUser = new User(signUpRequest.getUsername(), hashedPassword);
 
-        kafkaTemplate.send("user-signups", newUser);
+            List<String> nodes = consulServiceDiscovery.getAllServiceNodes();
+            ConsistentHashing ch = new ConsistentHashing(nodes.toArray(new String[0]), 100);
+            String affinityNode = ch.getNode(newUser.getId());
+            newUser.setAffinityNode(affinityNode);
 
-        return new SignUpResponse(
-                newUser.getId(),
-                "User registered successfully on this node: " + " (affinity: " + affinityNode + ")"
-        );
+            userRepository.save(newUser);
+            createUserDirectory(newUser);
+            kafkaTemplate.send("user-signups", newUser);
+
+            return new SignUpResponse(
+                    newUser.getId(),
+                    "User registered successfully on this node (affinity: " + affinityNode + ")"
+            );
+        } finally {
+            lockService.releaseWriteLock(lockKey);
+        }
     }
 
     private void createUserDirectory(User newUser) throws IOException {
