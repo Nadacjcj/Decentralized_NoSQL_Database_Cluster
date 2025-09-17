@@ -82,6 +82,7 @@ public class InsertDocumentService {
         insertEvent.setSchema(schema);
         insertEvent.setFlattenedDocument(flattenedFinalDocument);
         insertEvent.setFinalDocument(finalDocument);
+        insertEvent.setDocumentId(finalDocument.get("id").asText());
         kafkaTemplate.send("document-events", insertEvent);
 
         return "Inserted successfully " + insertEvent;

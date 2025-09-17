@@ -5,13 +5,11 @@ import com.orbitz.consul.KeyValueClient;
 import com.orbitz.consul.SessionClient;
 import com.orbitz.consul.model.session.ImmutableSession;
 import com.orbitz.consul.model.session.Session;
-import com.orbitz.consul.option.PutOptions;
 import com.google.common.net.HostAndPort;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -21,7 +19,6 @@ public class ConsulLockService {
 
     private final KeyValueClient kvClient;
     private final SessionClient sessionClient;
-
     private final Map<String, String> sessionMap = new ConcurrentHashMap<>();
     private static final int DEFAULT_RETRY_MS = 500;
 
@@ -55,8 +52,11 @@ public class ConsulLockService {
     public void releaseWriteLock(String key) {
         String sessionId = sessionMap.remove(key);
         if (sessionId != null) {
-            kvClient.releaseLock(key, sessionId);
-            sessionClient.destroySession(sessionId);
+            try {
+                kvClient.releaseLock(key, sessionId);
+            } finally {
+                sessionClient.destroySession(sessionId);
+            }
         }
     }
 
@@ -75,7 +75,8 @@ public class ConsulLockService {
     private String createConsulSession(String key) {
         Session session = ImmutableSession.builder()
                 .name("lock-session-" + key)
-                .ttl("10s")
+                .ttl("15s")
+                .behavior("delete")
                 .build();
         return sessionClient.createSession(session).getId();
     }

@@ -15,7 +15,7 @@ public abstract class DocumentEvent implements Serializable {
     private String userFolderName;
     private String databaseName;
     private String collectionName;
-
+    private String documentId;
     public abstract void process(JsonIndexingService jis , JsonRepository jsr , DocumentDeletionManager ddm , DocumentUpdaterService dus , IndexUpdaterService ius) throws IOException;
     public DocumentEvent(){}
 
@@ -41,5 +41,13 @@ public abstract class DocumentEvent implements Serializable {
 
     public void setCollectionName(String collectionName) {
         this.collectionName = collectionName;
+    }
+
+    public String getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(String documentId) {
+        this.documentId = documentId;
     }
 }

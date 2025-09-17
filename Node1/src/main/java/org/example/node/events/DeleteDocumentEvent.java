@@ -1,6 +1,8 @@
 package org.example.node.events;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.example.node.locks.ConsulLockService;
+import org.example.node.locks.SpringContext;
 import org.example.node.repository.JsonRepository;
 import org.example.node.service.DocumentDeletionManager;
 import org.example.node.service.DocumentUpdaterService;
@@ -37,9 +39,28 @@ public class DeleteDocumentEvent extends DocumentEvent implements Serializable {
     }
 
     @Override
-    public void process(JsonIndexingService jis, JsonRepository jsr , DocumentDeletionManager ddm , DocumentUpdaterService dus , IndexUpdaterService ius) throws IOException {
-        Path collectionPath = PathUtil.buildPath(getUserFolderName() , getDatabaseName() , getCollectionName());
-        ddm.deleteDocuments(filteringResults, flattenedSchema, collectionPath);
+    public void process(JsonIndexingService jis, JsonRepository jsr, DocumentDeletionManager ddm, DocumentUpdaterService dus, IndexUpdaterService ius) throws IOException {
+        ConsulLockService lockService = SpringContext.getBean(ConsulLockService.class);
 
+        HashSet<String> acquiredLocks = new HashSet<>();
+        try {
+            for (String docId : filteringResults) {
+                String lockKey = "doc:" + getUserFolderName() + ":" + getDatabaseName() + ":" + getCollectionName() + ":" + docId;
+                boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
+                if (!lockAcquired) {
+                    throw new IOException("Could not acquire lock for document " + docId);
+                }
+                acquiredLocks.add(lockKey);
+            }
+
+            Path collectionPath = PathUtil.buildPath(getUserFolderName(), getDatabaseName(), getCollectionName());
+            ddm.deleteDocuments(filteringResults, flattenedSchema, collectionPath);
+
+        } finally {
+            for (String lockKey : acquiredLocks) {
+                lockService.releaseWriteLock(lockKey);
+            }
+        }
     }
+
 }

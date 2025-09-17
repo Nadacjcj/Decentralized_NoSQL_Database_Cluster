@@ -50,7 +50,6 @@ public class SignUpService {
         }
 
         try {
-            // CRITICAL SECTION START
             userRepository.findByUsername(signUpRequest.getUsername())
                     .ifPresent(u -> { throw new IllegalArgumentException("Username already exists"); });
 

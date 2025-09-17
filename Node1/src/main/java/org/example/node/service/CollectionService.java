@@ -34,8 +34,10 @@ public class CollectionService {
     @Autowired private KafkaTemplate<String, Object> kafkaTemplate;
     @Autowired private ConsulLockService lockService;
 
+    @Autowired CollectionManagementService collectionManagementService;
+    @Autowired CollectionIndexService collectionIndexService;
+    @Autowired JsonIndexingService jsonIndexingService;
     private final ObjectMapper mapper = new ObjectMapper();
-
 
     public String createCollection(JwtAuthenticationFilter.UserPrincipal user,
                                    String databaseName,
@@ -52,13 +54,15 @@ public class CollectionService {
         return withDistributedLock(lockKey, () -> {
             JsonNode flattenedSchema = createCollectionSchema(userFolder, databaseName,
                     collectionRequest.getCollectionName(), collectionRequest.getSchema());
-
             CreateCollectionEvent event = buildCreateEvent(userFolder, databaseName,
                     collectionRequest, collectionMeta, flattenedSchema);
 
+            event.process(collectionManagementService, collectionIndexService, jsonIndexingService);
             kafkaTemplate.send("collection-events", event);
+
             return "Collection created for user: " + user.getUsername() + " " + event;
         });
+
     }
 
     public String deleteCollection(JwtAuthenticationFilter.UserPrincipal user,
@@ -73,12 +77,16 @@ public class CollectionService {
         String lockKey = generateLockKey(userFolder, databaseName, collectionRequest.getCollectionName());
 
         return withDistributedLock(lockKey, () -> {
+            // === APPLY LOCAL CHANGES FIRST ===
             DeleteCollectionEvent event = new DeleteCollectionEvent();
             event.setCollectionRequest(collectionRequest);
             event.setUserFolderName(userFolder);
             event.setDatabaseName(databaseName);
+            event.process(collectionManagementService, collectionIndexService, jsonIndexingService);
 
+            // === PUBLISH EVENT TO OTHER NODES ===
             kafkaTemplate.send("collection-events", event);
+
             return "Folder deleted for user: " + userFolder + " " + event;
         });
     }
@@ -95,12 +103,16 @@ public class CollectionService {
         String lockKey = generateLockKey(userFolder, databaseName, request.getOldDirectoryName());
 
         return withDistributedLock(lockKey, () -> {
+            // === APPLY LOCAL CHANGES FIRST ===
             RenameCollectionEvent event = new RenameCollectionEvent();
             event.setRequest(request);
             event.setUserFolderName(userFolder);
             event.setDatabaseName(databaseName);
+            event.process(collectionManagementService, collectionIndexService, jsonIndexingService);
 
+            // === PUBLISH EVENT TO OTHER NODES ===
             kafkaTemplate.send("collection-events", event);
+
             return "Folder renamed for user: " + userFolder + " " + event;
         });
     }
@@ -157,7 +169,6 @@ public class CollectionService {
         return jsonDoc;
     }
 
-
     private String buildUserFolderName(JwtAuthenticationFilter.UserPrincipal user) {
         return user.getUsername() + "_" + user.getId();
     }
@@ -209,7 +220,6 @@ public class CollectionService {
         event.setFlattenedSchema(flattenedSchema);
         return event;
     }
-
 
     @FunctionalInterface
     private interface LockCallback {
