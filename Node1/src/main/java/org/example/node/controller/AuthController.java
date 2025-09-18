@@ -18,9 +18,6 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest authRequest) {
         try {
             return ResponseEntity.ok(authService.login(authRequest));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(java.util.Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(java.util.Map.of("error", "Server error: " + e.getMessage()));

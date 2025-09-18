@@ -46,12 +46,13 @@ public class SignUpService {
 
         boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
         if (!lockAcquired) {
-            throw new IllegalStateException("Could not acquire lock for user signup, try again later");
+            return new SignUpResponse(null, "Could not acquire lock for user signup, try again later");
         }
 
         try {
-            userRepository.findByUsername(signUpRequest.getUsername())
-                    .ifPresent(u -> { throw new IllegalArgumentException("Username already exists"); });
+            if (userRepository.findByUsername(signUpRequest.getUsername()).isPresent()) {
+                return new SignUpResponse(null, "User already exists");
+            }
 
             String hashedPassword = passwordEncoder.encode(signUpRequest.getPassword());
             User newUser = new User(signUpRequest.getUsername(), hashedPassword);
@@ -73,6 +74,7 @@ public class SignUpService {
             lockService.releaseWriteLock(lockKey);
         }
     }
+
 
     private void createUserDirectory(User newUser) throws IOException {
         Path userDirectoryPath = PathUtil.buildPath(newUser.getUsername() + "_" + newUser.getId());

@@ -37,20 +37,22 @@ public class AuthService {
             User user = foundUser.get();
 
             if (!passwordEncoder.matches(authRequest.getPassword(), user.getPasswordHash())) {
-                throw new RuntimeException("Invalid username or password");
+                // return instead of throwing
+                return Map.of("message", "Invalid username or password");
             }
 
             String token = jwtUtil.generateToken(user.getId(), user.getUsername());
             return Map.of(
                     "token", token,
                     "id", user.getId(),
-                    "username", user.getUsername()
+                    "username", user.getUsername(),
+                    "message", "Login successful"
             );
         } else {
-            throw new RuntimeException("Invalid username or password");
+            // return instead of throwing
+            return Map.of("message", "Invalid username or password");
         }
     }
-
 
     public Map<String, Object> validateToken(String token) {
         if (jwtUtil.validateToken(token)) {
@@ -62,8 +64,8 @@ public class AuthService {
                     "message", "Hello, " + username + "!"
             );
         } else {
-            throw new RuntimeException("Invalid Token");
+            // return instead of throwing
+            return Map.of("message", "Invalid Token");
         }
     }
-
 }

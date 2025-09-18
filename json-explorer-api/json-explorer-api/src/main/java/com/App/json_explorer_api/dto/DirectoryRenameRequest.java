@@ -1,0 +1,28 @@
+package com.App.json_explorer_api.dto;
+
+import java.io.Serializable;
+
+public class DirectoryRenameRequest {
+    private  String oldDirectoryName;
+    private  String newDirectoryName;
+
+    public DirectoryRenameRequest(){}
+    public DirectoryRenameRequest(String oldDirectoryName, String newDirectoryName) {
+        this.oldDirectoryName = oldDirectoryName;
+        this.newDirectoryName = newDirectoryName;
+    }
+    public String getNewDirectoryName() {
+        return newDirectoryName;
+    }
+    public String getOldDirectoryName() {
+        return oldDirectoryName;
+    }
+
+    public void setOldDirectoryName(String oldDirectoryName) {
+        this.oldDirectoryName = oldDirectoryName;
+    }
+
+    public void setNewDirectoryName(String newDirectoryName) {
+        this.newDirectoryName = newDirectoryName;
+    }
+}

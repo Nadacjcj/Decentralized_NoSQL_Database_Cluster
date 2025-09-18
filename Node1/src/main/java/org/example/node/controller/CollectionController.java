@@ -1,9 +1,12 @@
 package org.example.node.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.example.node.dto.CollectionRequest;
 import org.example.node.dto.DirectoryRenameRequest;
 import org.example.node.filter.JwtAuthenticationFilter;
 import org.example.node.service.CollectionService;
+import org.example.node.service.LoadCollectionsService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +22,8 @@ public class CollectionController {
     public CollectionController(CollectionService collectionService) {
         this.collectionService = collectionService;
     }
+    @Autowired
+    LoadCollectionsService loadCollectionsService;
 
     private JwtAuthenticationFilter.UserPrincipal getUserPrincipal(Authentication authentication) {
         return (JwtAuthenticationFilter.UserPrincipal) authentication.getPrincipal();
@@ -52,5 +57,13 @@ public class CollectionController {
 
         JwtAuthenticationFilter.UserPrincipal user = getUserPrincipal(authentication);
         return ResponseEntity.ok(collectionService.renameCollection(user, databaseName, collectionRenameRequest));
+    }
+    @PostMapping("/load")
+    public ResponseEntity<?> loadCollections(
+            Authentication authentication
+            ,@RequestBody JsonNode DBName) throws IOException {
+        JwtAuthenticationFilter.UserPrincipal user = getUserPrincipal(authentication);
+        return ResponseEntity.ok(loadCollectionsService.loadCollections(user , DBName)
+        );
     }
 }
