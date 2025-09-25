@@ -118,6 +118,7 @@ public class UnionService {
 
     }
     private void joinResults(List<String> bTreeResults) {
+        System.out.println("BTREEEEEEEEE RESULTS HEREEE  " +bTreeResults);
         resultDocs.addAll(bTreeResults);
     }
     private List<String> filterNonIndexedFields(JsonNode condition  , Path collectionPath) throws IOException {

@@ -78,7 +78,7 @@ public class QueryController {
         );
     }
 
-    @GetMapping("/{databaseName}/{collectionName}/find")
+    @PostMapping("/{databaseName}/{collectionName}/find")
     public ResponseEntity<List<JsonNode>> readDocuments(
             Authentication authentication,
             @PathVariable String databaseName,

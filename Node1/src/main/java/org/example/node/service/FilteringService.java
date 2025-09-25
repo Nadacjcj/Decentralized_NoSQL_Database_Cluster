@@ -43,6 +43,8 @@ public class FilteringService {
         return intersectionService.performIntersection(filter , flattenedSchema , collectionPath);
     }
     private HashSet<String> intersectIndexedFilterResult(HashSet<String> union, HashSet<String> intersect) {
+        System.out.println("UNIONSSSS " +union);
+        System.out.println("INTERSEVTTTT " +intersect);
         if (union == null) {
             return intersect == null ? new HashSet<>() : new HashSet<>(intersect);
         }

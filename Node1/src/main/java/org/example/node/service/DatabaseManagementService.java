@@ -35,6 +35,7 @@ public class DatabaseManagementService {
         DirectoryUtil.deleteDirectory(dbPath);
         return true;
     }
+
     public boolean renameFolder(Path dbPath , String username, DirectoryRenameRequest databaseRenameRequest) throws IOException {
         boolean indexExists = checkKeyExistence(username ,databaseRenameRequest.getNewDirectoryName());
         if (databaseRenameRequest.getOldDirectoryName().isEmpty() || indexExists) {
@@ -44,8 +45,8 @@ public class DatabaseManagementService {
         DirectoryUtil.renameDirectory(dbPath, newPath);
         return true;
     }
+
     public boolean checkKeyExistence(String username , String folderName) throws IOException {
         return JsonPayloadUtil.loadDatabasesIndex(username).containsKey(folderName);
     }
-
 }

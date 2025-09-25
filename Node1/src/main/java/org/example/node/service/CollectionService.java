@@ -38,6 +38,7 @@ public class CollectionService {
     @Autowired CollectionIndexService collectionIndexService;
     @Autowired JsonIndexingService jsonIndexingService;
     private final ObjectMapper mapper = new ObjectMapper();
+    // -> create a config file for the whole application and inject the bean here for ObjectMapper
 
     public String createCollection(JwtAuthenticationFilter.UserPrincipal user,
                                    String databaseName,

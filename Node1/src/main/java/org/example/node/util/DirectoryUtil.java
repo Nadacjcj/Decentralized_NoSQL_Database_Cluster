@@ -12,6 +12,7 @@ public class DirectoryUtil {
     public static void deleteDirectory(Path directoryPath) throws IOException {
         System.out.println("Before deletion");
 
+
         if (Files.exists(directoryPath)) {
             Files.walk(directoryPath)
                     .sorted((p1, p2) -> p2.compareTo(p1))

@@ -60,7 +60,7 @@ public class IntersectionService {
                 JsonNode condition = entry.getValue();
 
                 if (condition.isObject() && flattenedSchema.has(fieldName)) {
-                    String[] operators = {"eq", "ne", "gt", "gte", "ls", "lse"};
+                    String[] operators = {"eq", "ne", "gt", "gte", "lt", "lte"}; // constants (I prefer ENUMs)
 
                     for (String op : operators) {
                         if (condition.has(op)) {
@@ -116,6 +116,8 @@ public class IntersectionService {
         return indexed != null && indexed;
     }
     private void intersectResults(List<String> btreeResults) throws JsonProcessingException {
+        System.out.println("BTREEEEEEEEE Intersect RESULTS HEREEE  " + btreeResults);
+
         if (resultDocs.isEmpty()) {
             resultDocs.addAll(btreeResults);
         } else {

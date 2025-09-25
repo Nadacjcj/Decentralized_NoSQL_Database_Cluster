@@ -61,6 +61,7 @@ public class DatabaseController {
                 databaseService.renameDatabase(user, request)
         );
     }
+
     @GetMapping("/load")
     public ResponseEntity<?> loadDatabases(
             Authentication authentication) throws IOException {
@@ -69,5 +70,4 @@ public class DatabaseController {
                 loadDatabasesService.loadDBs(user)
         );
     }
-
 }

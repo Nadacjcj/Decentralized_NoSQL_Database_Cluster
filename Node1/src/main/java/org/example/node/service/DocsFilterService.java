@@ -37,16 +37,32 @@ public class DocsFilterService {
             JsonNode docValue = doc.get(field);
             if (docValue == null) return false;
 
+            double docNum, condNum;
+
             switch (operator) {
-                case "eq":  return docValue.asText().equals(value.asText());
-                case "ne":  return !docValue.asText().equals(value.asText());
-                case "gt":  return docValue.isNumber() && docValue.asDouble() > value.asDouble();
-                case "gte": return docValue.isNumber() && docValue.asDouble() >= value.asDouble();
-                case "lt":  return docValue.isNumber() && docValue.asDouble() < value.asDouble();
-                case "lte": return docValue.isNumber() && docValue.asDouble() <= value.asDouble();
-                default: throw new IllegalArgumentException("Unknown operator: " + operator);
+                case "eq":
+                    return docValue.asText().equals(value.asText());
+                case "ne":
+                    return !docValue.asText().equals(value.asText());
+                case "gt":
+                    docNum = docValue.isNumber() ? docValue.asDouble() : Double.parseDouble(docValue.asText());
+                    condNum = value.asDouble();
+                    return docNum > condNum;
+                case "gte":
+                    docNum = docValue.isNumber() ? docValue.asDouble() : Double.parseDouble(docValue.asText());
+                    condNum = value.asDouble();
+                    return docNum >= condNum;
+                case "lt":
+                    docNum = docValue.isNumber() ? docValue.asDouble() : Double.parseDouble(docValue.asText());
+                    condNum = value.asDouble();
+                    return docNum < condNum;
+                case "lte":
+                    docNum = docValue.isNumber() ? docValue.asDouble() : Double.parseDouble(docValue.asText());
+                    condNum = value.asDouble();
+                    return docNum <= condNum;
+                default:
+                    throw new IllegalArgumentException("Unknown operator: " + operator);
             }
         };
     }
 }
-

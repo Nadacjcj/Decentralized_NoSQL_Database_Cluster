@@ -19,6 +19,12 @@ public class LoadCollectionsService {
         Path userFolderPath = PathUtil.buildPath(userFolderName , databaseName , "collections_info.json");
         return JsonRepository.readDoc(userFolderPath);
     }
+    public JsonNode loadSchema(JwtAuthenticationFilter.UserPrincipal user, String databaseName , String collectionName) throws IOException {
+        String userFolderName = buildDBFolderName(user);
+
+        Path userFolderPath = PathUtil.buildPath(userFolderName , databaseName , collectionName).resolve("schema.json");
+        return JsonRepository.readDoc(userFolderPath);
+    }
     private String buildDBFolderName(JwtAuthenticationFilter.UserPrincipal user) {
         return user.getUsername() + "_" + user.getId();
     }

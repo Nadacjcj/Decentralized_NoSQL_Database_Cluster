@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="Reverse-Proxy1" options="-parameters" />
+      <module name="Reverse-Proxy1.main" options="-parameters" />
+      <module name="Reverse-Proxy1.test" options="-parameters" />
+      <module name="Test" options="-parameters" />
+      <module name="Test.main" options="-parameters" />
+      <module name="Test.test" options="-parameters" />
+      <module name="bootstrap" options="-parameters" />
+      <module name="bootstrap.main" options="-parameters" />
+      <module name="bootstrap.test" options="-parameters" />
+      <module name="json-explorer-api" options="-parameters" />
+      <module name="json-explorer-api.main" options="-parameters" />
+      <module name="json-explorer-api.test" options="-parameters" />
+    </option>
+  </component>
+</project>

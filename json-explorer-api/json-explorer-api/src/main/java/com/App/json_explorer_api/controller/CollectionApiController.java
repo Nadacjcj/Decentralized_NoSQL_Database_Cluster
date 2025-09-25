@@ -25,7 +25,7 @@ public class CollectionApiController {
     }
 
     @PostMapping("/load-collections")
-    public ResponseEntity<List<CollectionMeta>> loadCollections(
+    public ResponseEntity<?> loadCollections(
             @RequestBody JsonNode dbName,
             HttpServletRequest request
     ) throws Exception {
@@ -33,15 +33,43 @@ public class CollectionApiController {
         return ResponseEntity.ok(collections);
     }
 
+    @PostMapping("/create-collection/{databaseName}")
+    public ResponseEntity<String> createCollection(
+            @PathVariable String databaseName,
+            @RequestBody CollectionRequest collectionRequest,
+            HttpServletRequest request
+    ) {
+        String url = "http://localhost:8080/api/collection/" + databaseName + "/create";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && !authHeader.isEmpty()) {
+            headers.set("Authorization", authHeader);
+        }
+
+        HttpEntity<CollectionRequest> requestEntity = new HttpEntity<>(collectionRequest, headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+
+        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+    }
+
     @DeleteMapping("/delete-collection/{databaseName}")
     public ResponseEntity<String> deleteCollection(
             @PathVariable String databaseName,
-            @RequestBody CollectionRequest collectionRequest
+            @RequestBody CollectionRequest collectionRequest,
+            HttpServletRequest request
     ) {
         String url = "http://localhost:8080/api/collection/" + databaseName + "/delete";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && !authHeader.isEmpty()) {
+            headers.set("Authorization", authHeader);
+        }
 
         HttpEntity<CollectionRequest> requestEntity = new HttpEntity<>(collectionRequest, headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, requestEntity, String.class);
@@ -52,12 +80,18 @@ public class CollectionApiController {
     @PutMapping("/rename-collection/{databaseName}")
     public ResponseEntity<String> renameCollection(
             @PathVariable String databaseName,
-            @RequestBody DirectoryRenameRequest renameRequest
+            @RequestBody DirectoryRenameRequest renameRequest,
+            HttpServletRequest request
     ) {
         String url = "http://localhost:8080/api/collection/" + databaseName + "/rename";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && !authHeader.isEmpty()) {
+            headers.set("Authorization", authHeader);
+        }
 
         HttpEntity<DirectoryRenameRequest> requestEntity = new HttpEntity<>(renameRequest, headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, String.class);

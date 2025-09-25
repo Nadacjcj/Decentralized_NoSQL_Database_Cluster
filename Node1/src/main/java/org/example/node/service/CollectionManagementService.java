@@ -38,9 +38,11 @@ public class CollectionManagementService {
         DirectoryUtil.renameDirectory(collectionPath, newPath);
         return  true;
     }
+
     public boolean checkKeyExistence(String username , String databaseName , String collectionName) throws IOException {
         return JsonPayloadUtil.loadCollectionIndex(username , databaseName).containsKey(collectionName);
     }
+
     private void createDocumentsDirectory(Path collectionPath) throws IOException {
         Path documentsPath = collectionPath.resolve("documents");
         DirectoryUtil.createDirectory(documentsPath);

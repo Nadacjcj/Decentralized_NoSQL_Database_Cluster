@@ -17,7 +17,7 @@ public class CollectionIndexService {
 
     @Autowired
     private final JsonRepository jsonRepository;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper(); // note
 
     public CollectionIndexService(JsonRepository jsonRepository) {
         this.jsonRepository = jsonRepository;

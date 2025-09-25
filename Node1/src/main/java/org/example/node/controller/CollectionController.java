@@ -66,4 +66,13 @@ public class CollectionController {
         return ResponseEntity.ok(loadCollectionsService.loadCollections(user , DBName)
         );
     }
+    @GetMapping("/get-schema/{databaseName}/{collectionName}")
+    public ResponseEntity<?> loadSchema(
+            Authentication authentication
+            ,@RequestParam String databaseName,
+            @RequestParam String collectionName) throws IOException {
+        JwtAuthenticationFilter.UserPrincipal user = getUserPrincipal(authentication);
+        return ResponseEntity.ok(loadCollectionsService.loadSchema(user , databaseName , collectionName)
+        );
+    }
 }

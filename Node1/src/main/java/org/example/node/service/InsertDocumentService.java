@@ -36,6 +36,7 @@ public class InsertDocumentService {
     public InsertDocumentService() {
         mapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
     }
+
     public String insertDocument(JwtAuthenticationFilter.UserPrincipal user, String databaseName, String collectionName , JsonNode document) throws IOException {
         String userFolder = buildUserFolderName(user);
 
@@ -55,7 +56,7 @@ public class InsertDocumentService {
         boolean typesMatch = schemaValidationService.validateType(flattenedDocument, schema);
         boolean uniqueCheck = schemaValidationService.validateUniques(flattenedDocument , schema , collectionPath);
 
-
+        // I prefer if an exception is returned with a specific message
         if(!allRequired){
             return "Required fields are missing!!";
         }

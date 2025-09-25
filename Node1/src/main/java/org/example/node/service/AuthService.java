@@ -18,6 +18,8 @@ import java.util.Optional;
 public class AuthService {
 
     private static final String USERS_FILE = "user_data/users_info.json";
+    public static final String INVALID_USERNAME_OR_PASSWORD = "Invalid username or password";
+    public static final String LOGIN_SUCCESSFUL = "Login successful";
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Autowired
@@ -38,7 +40,7 @@ public class AuthService {
 
             if (!passwordEncoder.matches(authRequest.getPassword(), user.getPasswordHash())) {
                 // return instead of throwing
-                return Map.of("message", "Invalid username or password");
+                return Map.of("message", INVALID_USERNAME_OR_PASSWORD);
             }
 
             String token = jwtUtil.generateToken(user.getId(), user.getUsername());
@@ -46,7 +48,7 @@ public class AuthService {
                     "token", token,
                     "id", user.getId(),
                     "username", user.getUsername(),
-                    "message", "Login successful"
+                    "message", LOGIN_SUCCESSFUL
             );
         } else {
             // return instead of throwing

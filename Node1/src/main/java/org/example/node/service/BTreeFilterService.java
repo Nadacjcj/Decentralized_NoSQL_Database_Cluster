@@ -12,30 +12,34 @@ public class BTreeFilterService {
     private BPlusTree indexTree;
 
     public List<String> performUniqueBTreeFilter(JsonNode indexFileContent, JsonNode condition, String fieldType){
+        System.out.println("[DEBUG] performUniqueBTreeFilter type=" + fieldType + " condition=" + condition.toString());
         indexTree = new BPlusTree(3, true, fieldType);
-        buildUpUniqueFieldsBTree(indexFileContent);
-        return applyOperation(condition, fieldType);
+        buildUniqueBTree(indexFileContent);
+        return applyOperation(condition);
     }
 
     public List<String> performNonUniqueBTreeFilter(JsonNode indexFileContent, JsonNode condition, String fieldType){
+        System.out.println("[DEBUG] performNonUniqueBTreeFilter type=" + fieldType + " condition=" + condition.toString());
         indexTree = new BPlusTree(3, false, fieldType);
-        buildNonUniqueFieldsBTree(indexFileContent);
-        return applyOperation(condition, fieldType);
+        buildNonUniqueBTree(indexFileContent);
+        return applyOperation(condition);
     }
 
-    private void buildUpUniqueFieldsBTree(JsonNode indexJson) {
+    private void buildUniqueBTree(JsonNode indexJson) {
         indexJson.fields().forEachRemaining(entry -> {
             indexTree.insert(entry.getKey(), entry.getValue().asText());
         });
     }
 
-    private void buildNonUniqueFieldsBTree(JsonNode indexJson) {
+    private void buildNonUniqueBTree(JsonNode indexJson) {
         indexJson.fields().forEachRemaining(entry -> {
             entry.getValue().forEach(docIdNode -> indexTree.insert(entry.getKey(), docIdNode.asText()));
         });
     }
 
-    private List<String> applyOperation(JsonNode condition, String fieldType){
+    private List<String> applyOperation(JsonNode condition){
+        System.out.println("[DEBUG] applyOperation: " + condition.toString());
+
         if (condition.has("eq")) {
             return indexTree.search(condition.get("eq").asText());
         } else if (condition.has("ne")) {
@@ -45,12 +49,15 @@ public class BTreeFilterService {
             return allDocs;
         } else if (condition.has("gt")) {
             return indexTree.rangeQuery(condition.get("gt").asText(), false, null, true);
-        } else if (condition.has("lt")) {
-            return indexTree.rangeQuery(null, true, condition.get("lt").asText(), false);
         } else if (condition.has("gte")) {
             return indexTree.rangeQuery(condition.get("gte").asText(), true, null, true);
+        } else if (condition.has("lt")) {
+            return indexTree.rangeQuery(null, true, condition.get("lt").asText(), false);
         } else if (condition.has("lte")) {
             return indexTree.rangeQuery(null, true, condition.get("lte").asText(), true);
-        } else return new ArrayList<>();
+        } else {
+            System.out.println("[DEBUG] Unknown operation in condition: " + condition.toString());
+            return new ArrayList<>();
+        }
     }
 }
