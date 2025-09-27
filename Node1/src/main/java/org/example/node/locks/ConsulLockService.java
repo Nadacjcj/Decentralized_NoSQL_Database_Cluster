@@ -17,19 +17,23 @@ import java.util.function.Supplier;
 @Service
 public class ConsulLockService {
 
+    public static final String $_SPRING_CLOUD_CONSUL_HOST = "${spring.cloud.consul.host}";
+    public static final String $_SPRING_CLOUD_CONSUL_PORT = "${spring.cloud.consul.port}";
+    public static final String FAILED_TO_ACQUIRE_LOCK_FOR_KEY = "Failed to acquire lock for key: ";
     private final KeyValueClient kvClient;
     private final SessionClient sessionClient;
-    private final Map<String, String> sessionMap = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionMap;
     private static final int DEFAULT_RETRY_MS = 500;
 
     public ConsulLockService(
-            @Value("${spring.cloud.consul.host}") String consulHost,
-            @Value("${spring.cloud.consul.port}") int consulPort) {
+            @Value($_SPRING_CLOUD_CONSUL_HOST) String consulHost,
+            @Value($_SPRING_CLOUD_CONSUL_PORT) int consulPort) {
 
         Consul consul = Consul.builder()
                 .withHostAndPort(HostAndPort.fromParts(consulHost, consulPort))
                 .build();
 
+        sessionMap = new ConcurrentHashMap<>();
         this.kvClient = consul.keyValueClient();
         this.sessionClient = consul.sessionClient();
     }
@@ -45,7 +49,7 @@ public class ConsulLockService {
             }
             return acquired;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to acquire lock for key: " + key, e);
+            throw new IllegalStateException(FAILED_TO_ACQUIRE_LOCK_FOR_KEY + key, e);
         }
     }
 

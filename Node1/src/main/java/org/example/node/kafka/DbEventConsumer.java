@@ -1,13 +1,13 @@
 package org.example.node.kafka;
 
-import org.example.node.dto.DBDeletionRequest;
-import org.example.node.dto.DirectoryRenameRequest;
-import org.example.node.dto.DBCreationRequest;
-import org.example.node.events.DbFolderEvent;
-import org.example.node.service.DatabaseIndexService;
-import org.example.node.service.DatabaseManagementService;
+import org.example.node.dto.database.DBDeletionRequest;
+import org.example.node.dto.database.DirectoryRenameRequest;
+import org.example.node.dto.database.DBCreationRequest;
+import org.example.node.events.database.DbFolderEvent;
+import org.example.node.service.database.DatabaseIndexService;
+import org.example.node.service.database.DatabaseManagementService;
 import org.example.node.locks.ConsulLockService;
-import org.example.node.util.PathUtil;
+import org.example.node.util.filesystem.PathUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -18,6 +18,9 @@ import java.nio.file.Path;
 @Component
 public class DbEventConsumer {
 
+    public static final String DATABASES_INFO_JSON = "databases_info.json";
+    public static final String DATABASE_EVENTS = "database-events";
+    public static final String $_SPRING_KAFKA_CONSUMER_GROUP_ID = "${spring.kafka.consumer.group-id}";
     @Autowired
     DatabaseManagementService databaseManagementService;
 
@@ -27,11 +30,12 @@ public class DbEventConsumer {
     @Autowired
     ConsulLockService lockService;
 
-    @KafkaListener(topics = "database-events", groupId = "${spring.kafka.consumer.group-id}")
+    @KafkaListener(topics = DATABASE_EVENTS, groupId = $_SPRING_KAFKA_CONSUMER_GROUP_ID)
     public void listen(DbFolderEvent event) throws IOException {
         String userFolder = event.getUserFolderName();
         String dbFolderName = event.getDbFolderName();
-        String lockKey = "db-folder:" + userFolder + ":" + dbFolderName;
+        String lockKey = "db-folder_" + userFolder + "_" + dbFolderName;
+
 
         boolean lockAcquired = lockService.tryAcquireWithRetry(() -> lockService.acquireWriteLock(lockKey), 10);
         if (!lockAcquired) {
@@ -64,7 +68,7 @@ public class DbEventConsumer {
         DBCreationRequest request = new DBCreationRequest(event.getDbFolderName(), event.getDbFolderDescription());
         boolean created = databaseManagementService.createFolder(dbPath, userFolder, request);
         if (created) {
-            Path metaFile = PathUtil.buildPath(userFolder).resolve("databases_info.json");
+            Path metaFile = PathUtil.buildPath(userFolder).resolve(DATABASES_INFO_JSON);
             databaseIndexService.storeDatabaseInfo(event.getFolderMeta(), metaFile);
         }
     }
@@ -73,7 +77,7 @@ public class DbEventConsumer {
         DBDeletionRequest request = new DBDeletionRequest(event.getDbFolderName());
         boolean deleted = databaseManagementService.deleteFolder(dbPath, userFolder, request);
         if (deleted) {
-            Path metaFile = PathUtil.buildPath(userFolder).resolve("databases_info.json");
+            Path metaFile = PathUtil.buildPath(userFolder).resolve(DATABASES_INFO_JSON);
             databaseIndexService.removeDatabaseInfo(request.getDatabaseName(), metaFile);
         }
     }
@@ -82,7 +86,7 @@ public class DbEventConsumer {
         DirectoryRenameRequest request = new DirectoryRenameRequest(event.getDbFolderName(), event.getDbNewFolderName());
         boolean renamed = databaseManagementService.renameFolder(dbPath, userFolder, request);
         if (renamed) {
-            Path metaFile = PathUtil.buildPath(userFolder).resolve("databases_info.json");
+            Path metaFile = PathUtil.buildPath(userFolder).resolve(DATABASES_INFO_JSON);
             databaseIndexService.renameDatabase(request, metaFile);
         }
     }

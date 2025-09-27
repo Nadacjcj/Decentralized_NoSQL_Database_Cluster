@@ -1,10 +1,9 @@
 package org.example.node.controller;
 
 import jakarta.validation.Valid;
-import org.example.node.dto.SignUpRequest;
-import org.example.node.dto.SignUpResponse;
-import org.example.node.model.User;
-import org.example.node.service.SignUpService;
+import org.example.node.dto.signUp.SignUpRequest;
+import org.example.node.dto.signUp.SignUpResponse;
+import org.example.node.service.user.SignUpService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

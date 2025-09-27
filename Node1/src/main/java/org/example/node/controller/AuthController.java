@@ -1,7 +1,7 @@
 package org.example.node.controller;
 
-import org.example.node.dto.LoginRequest;
-import org.example.node.service.AuthService;
+import org.example.node.dto.authentication.LoginRequest;
+import org.example.node.service.user.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

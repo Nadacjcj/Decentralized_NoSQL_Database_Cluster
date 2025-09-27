@@ -1,11 +1,11 @@
 package org.example.node.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.example.node.dto.CollectionRequest;
-import org.example.node.dto.DirectoryRenameRequest;
+import org.example.node.dto.collection.CollectionRequest;
+import org.example.node.dto.database.DirectoryRenameRequest;
 import org.example.node.filter.JwtAuthenticationFilter;
-import org.example.node.service.CollectionService;
-import org.example.node.service.LoadCollectionsService;
+import org.example.node.service.collection.CollectionService;
+import org.example.node.service.collection.LoadCollectionsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;

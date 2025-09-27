@@ -1,14 +1,14 @@
 package org.example.node.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.example.node.dto.DeleteDocRequest;
-import org.example.node.dto.FindQueryRequest;
-import org.example.node.dto.UpdateDocRequest;
+import org.example.node.dto.queries.DeleteDocRequest;
+import org.example.node.dto.queries.FindQueryRequest;
+import org.example.node.dto.queries.UpdateDocRequest;
 import org.example.node.filter.JwtAuthenticationFilter;
-import org.example.node.service.DeleteDocumentService;
-import org.example.node.service.FindQueryService;
-import org.example.node.service.InsertDocumentService;
-import org.example.node.service.UpdateDocumentService;
+import org.example.node.service.queries.DeleteDocumentService;
+import org.example.node.service.queries.FindQueryService;
+import org.example.node.service.queries.InsertDocumentService;
+import org.example.node.service.queries.UpdateDocumentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;

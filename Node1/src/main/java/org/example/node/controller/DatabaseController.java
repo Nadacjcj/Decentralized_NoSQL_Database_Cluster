@@ -1,12 +1,11 @@
 package org.example.node.controller;
 
-import org.example.node.dto.DBDeletionRequest;
-import org.example.node.dto.DirectoryRenameRequest;
-import org.example.node.dto.DBCreationRequest;
+import org.example.node.dto.database.DBDeletionRequest;
+import org.example.node.dto.database.DirectoryRenameRequest;
+import org.example.node.dto.database.DBCreationRequest;
 import org.example.node.filter.JwtAuthenticationFilter;
-import org.example.node.service.DatabaseService;
-import org.example.node.service.LoadDatabasesService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.example.node.service.database.DatabaseService;
+import org.example.node.service.database.LoadDatabasesService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;

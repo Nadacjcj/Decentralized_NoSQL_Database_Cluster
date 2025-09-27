@@ -17,7 +17,11 @@ public class UserRepositoryImp implements UserRepository{
     private static final String BASE_PATH = "user_data";
     private static final String USER_DATA_PATH = BASE_PATH + "/users_info.json";
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public UserRepositoryImp(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     private List<User> readUsers() {
         try {
@@ -25,7 +29,7 @@ public class UserRepositoryImp implements UserRepository{
             if (!file.exists()) {
                 return new ArrayList<>();
             }
-            return mapper.readValue(file, new TypeReference<List<User>>() {});
+            return objectMapper.readValue(file, new TypeReference<List<User>>() {});
         } catch (IOException e) {
             throw new RuntimeException("Failed to read users file", e);
         }
@@ -33,7 +37,7 @@ public class UserRepositoryImp implements UserRepository{
 
     private void writeUsers(List<User> users) {
         try {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(new File(USER_DATA_PATH), users);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(USER_DATA_PATH), users);
         } catch (IOException e) {
             throw new RuntimeException("Failed to write users file", e);
         }
