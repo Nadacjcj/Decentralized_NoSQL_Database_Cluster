@@ -1,0 +1,124 @@
+package org.example.node.service.indexing;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.example.node.dto.collection.SchemaRule;
+import org.example.node.repository.JsonRepository;
+import org.example.node.util.filesystem.JsonPayloadUtil;
+import org.springframework.stereotype.Service;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Iterator;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+@Service
+public class JsonIndexingService {
+
+    private static final Logger logger = LogManager.getLogger(JsonIndexingService.class);
+
+    public static final String ID = "id";
+    public static final String DOT_ = "_DOT_";
+    public static final String INDEX_JSON = "_index.json";
+
+    private final ObjectMapper mapper;
+    private final JsonRepository jsonRepository;
+
+    public JsonIndexingService(JsonRepository jsonRepository ,ObjectMapper mapper) {
+        mapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
+        this.jsonRepository = jsonRepository;
+        this.mapper = mapper;
+    }
+
+    public void checkIndexableFields(JsonNode schema, Path collectionPath) {
+        Iterator<String> fieldNames = schema.fieldNames();
+        while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            JsonNode fieldValue = schema.get(fieldName);
+
+            try {
+                SchemaRule schemaRule = mapper.treeToValue(fieldValue, SchemaRule.class);
+                if (Boolean.TRUE.equals(schemaRule.getIndex())) {
+                    createIndexFile(fieldName , collectionPath);
+                    logger.info("Created index file for field '{}'", fieldName);
+                }
+            } catch (JsonProcessingException e) {
+                logger.error("JSON parsing error for field '{}'", fieldName, e);
+            } catch (IOException e) {
+                logger.error("IO error for field '{}'", fieldName, e);
+            }
+        }
+    }
+
+    public void createIndexFile(String plainFieldName , Path collectionPath) throws IOException {
+        String indexFileName = encodeFileName(plainFieldName);
+        Path indexFilePath = collectionPath.resolve(indexFileName);
+        File infexFile = indexFilePath.toFile();
+        JsonPayloadUtil.createEmptyJsonFileIfNotExists(infexFile);
+    }
+
+    public static String encodeFileName(String fieldName) throws IOException {
+        return fieldName.replace(".", DOT_) + INDEX_JSON;
+    }
+
+    public void updateIndexes(JsonNode schema, JsonNode document, Path collectionPath) throws IOException {
+        Iterator<String> fieldNames = document.fieldNames();
+        while (fieldNames.hasNext()) {
+            String key = fieldNames.next();
+
+            JsonNode schemaValueNode = schema.get(key);
+            SchemaRule schemaRule = mapper.treeToValue(schemaValueNode, SchemaRule.class);
+
+            if(schemaRule.getIndex() == Boolean.TRUE) {
+                if(schemaRule.isUnique() == Boolean.TRUE) {
+                    updateUniqueFieldsIndex(key , document , collectionPath);
+                    logger.info("Updated unique index for field '{}', docId='{}'", key, document.get(ID).asText());
+                }else{
+                    updateNonUniqueFiled(key , document , collectionPath);
+                    logger.info("Updated non-unique index for field '{}', docId='{}'", key, document.get(ID).asText());
+                }
+            }
+        }
+    }
+
+    void updateUniqueFieldsIndex(String fieldName , JsonNode document, Path collectionPath) throws IOException {
+        ObjectNode loadedIndex = jsonRepository.readIndex(collectionPath.resolve(encodeFileName(fieldName)));
+        String docIdValue = "doc_" + document.get(ID).asText();
+        loadedIndex.put(document.get(fieldName).asText(), docIdValue);
+        jsonRepository.writeIndex(loadedIndex, collectionPath.resolve(encodeFileName(fieldName)));
+    }
+
+    void updateNonUniqueFiled(String fieldName , JsonNode document, Path collectionPath) throws IOException {
+        ObjectNode loadedIndex = jsonRepository.readIndex(collectionPath.resolve(encodeFileName(fieldName)));
+
+        ArrayNode docsArray;
+        String fieldValue = document.get(fieldName).asText();
+
+        if (loadedIndex.has(fieldValue)) {
+            docsArray = (ArrayNode) loadedIndex.get(fieldValue);
+        }else {
+            docsArray = mapper.createArrayNode();
+            loadedIndex.set(fieldValue, docsArray);
+        }
+
+        String storedDocName = "doc_" + document.get(ID).asText();
+        boolean exists = false;
+        for (JsonNode n : docsArray) {
+            if (n.asText().equals(storedDocName)) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            docsArray.add(storedDocName);
+        }
+        jsonRepository.writeIndex(loadedIndex, collectionPath.resolve(encodeFileName(fieldName)));
+    }
+}

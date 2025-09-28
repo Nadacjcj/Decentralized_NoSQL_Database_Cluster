@@ -34,7 +34,7 @@ services:
 
   spring-app-a:
     build:
-      context: ./Node1
+      context: ./file-system
       dockerfile: Dockerfile
     container_name: spring-app-a
     hostname: spring-app-a
@@ -55,7 +55,7 @@ services:
 
   spring-app-b:
     build:
-      context: ./Node1
+      context: ./file-system
       dockerfile: Dockerfile
     container_name: spring-app-b
     hostname: spring-app-b
@@ -76,7 +76,7 @@ services:
 
   spring-app-c:
     build:
-      context: ./Node1
+      context: ./file-system
       dockerfile: Dockerfile
     container_name: spring-app-c
     hostname: spring-app-c
@@ -97,7 +97,7 @@ services:
 
   reverse-proxy-1:
     build:
-      context: ./Proxy
+      context: ./proxy
       dockerfile: Dockerfile
     container_name: reverse-proxy-1
     ports:
@@ -115,7 +115,7 @@ services:
 
   reverse-proxy-2:
     build:
-      context: ./Proxy
+      context: ./proxy
       dockerfile: Dockerfile
     container_name: reverse-proxy-2
     ports:
@@ -137,7 +137,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./Nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - reverse-proxy-1
       - reverse-proxy-2
